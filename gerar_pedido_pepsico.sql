@@ -1,0 +1,735 @@
+
+
+-----------------------------------------------------------------------------------
+-- Desenvolvido por: Eduardo Nakanishi, Michael Faria e Luan Ribeiro  21/08/2024 --
+-----------------------------------------------------------------------------------
+
+
+BEGIN
+	TRY
+
+
+	BEGIN TRANSACTION
+
+DECLARE @ENTIDADE			 NVARCHAR(MAX) = ( SELECT TOP 1 ENTIDADE
+												   FROM NF_COMPRA
+												  WHERE EMPRESA    = @EMPRESA
+												     AND CHAVE_NFE = @CHAVE_NFE
+												  ORDER BY EMISSAO DESC )
+DECLARE @PEDIDO_COMPRA		   NUMERIC(15)
+DECLARE @PEDIDO_COMPRA_PARCELA NUMERIC(15)
+DECLARE @PEDIDO_COMPRA_PRODUTO NUMERIC(15)
+DECLARE @PEDIDO_COMPRA_TOTAL   NUMERIC(15)
+DECLARE @PRODUTOS_INSERT	   TABLE ( ID		  INT IDENTITY (1,1)
+							         , PRODUTO	  NUMERIC(10)
+							         , QUANTIDADE INT)
+
+
+	SET @PEDIDO_COMPRA		   = IDENT_CURRENT('PEDIDOS_COMPRAS')		   + 1
+	SET @PEDIDO_COMPRA_PRODUTO = IDENT_CURRENT('PEDIDOS_COMPRAS_PRODUTOS') + 1
+	SET @PEDIDO_COMPRA_PARCELA = IDENT_CURRENT('PEDIDOS_COMPRAS_PARCELAS') + 1
+	SET @PEDIDO_COMPRA_TOTAL   = IDENT_CURRENT('PEDIDOS_COMPRAS_TOTAIS')   + 1
+
+
+IF EXISTS (SELECT * FROM NF_COMPRA WHERE CHAVE_NFE = @CHAVE_NFE AND PEDIDO_COMPRA IS NULL)
+BEGIN
+
+
+INSERT INTO @PRODUTOS_INSERT
+
+
+SELECT  B.PRODUTO
+	  , B.QUANTIDADE
+  FROM NF_COMPRA AS A
+  JOIN NF_COMPRA_PRODUTOS AS B ON A.NF_COMPRA = B.NF_COMPRA
+ WHERE CHAVE_NFE = @CHAVE_NFE
+   AND EMPRESA   = @EMPRESA
+
+
+END
+ELSE
+
+
+INSERT INTO @PRODUTOS_INSERT
+
+
+VALUES (579, 13)
+	 , (578,15)
+	 , (3123, 15)
+
+
+----------------------------------
+-- INSERE PEDIDO_COMPRA NA TEMPOR RIA --
+----------------------------------------
+
+
+IF OBJECT_ID('TEMPDB..#TEMP__PEDIDOS_COMPRAS_INSERT') IS NOT NULL
+	DROP TABLE #TEMP__PEDIDOS_COMPRAS_INSERT
+
+
+CREATE TABLE #TEMP__PEDIDOS_COMPRAS_INSERT ( PEDIDO_COMPRA	      NUMERIC(15)
+										   , FORMULARIO_ORIGEM    NUMERIC(15)
+										   , TAB_MASTER_ORIGEM    NUMERIC(15)
+										   , REG_MASTER_ORIGEM    NUMERIC(15)
+										   , EMPRESA		      NUMERIC(3)
+										   , DATA_HORA		      DATETIME
+										   , USUARIO_LOGADO	      NUMERIC(15)
+										   , ENTIDADE		      NUMERIC(20)
+										   , DATA_ENTREGA	      DATE
+										   , PHARMALINK		      CHAR(1)
+										   , PEDIDO_OL		      CHAR(1)
+										   , PEDIDO_ELETRONICO    CHAR(1)
+										   , SUBST_INCLUSA_PRECO  CHAR(1)
+										   , PHARMALINK_CONDICAO  VARCHAR(3)
+										   , COMPRADOR			  NUMERIC(9)
+										   , INTEGRACAO_EXTERNA   CHAR(1)
+										   , CROSSDOCKING	      CHAR(1)
+										   , PROCESSAR_INTEGRACAO CHAR(1)
+										   , SYNC_CD			  CHAR(1))
+
+
+INSERT INTO #TEMP__PEDIDOS_COMPRAS_INSERT ( PEDIDO_COMPRA
+							, FORMULARIO_ORIGEM
+							, TAB_MASTER_ORIGEM
+							, REG_MASTER_ORIGEM
+							, EMPRESA
+							, DATA_HORA
+							, USUARIO_LOGADO
+							, ENTIDADE
+							, DATA_ENTREGA
+							, PHARMALINK
+							, PEDIDO_OL
+							, PEDIDO_ELETRONICO
+							, SUBST_INCLUSA_PRECO
+							, PHARMALINK_CONDICAO
+							, COMPRADOR
+							, INTEGRACAO_EXTERNA
+							, CROSSDOCKING
+							, PROCESSAR_INTEGRACAO
+							, SYNC_CD)
+
+
+SELECT @PEDIDO_COMPRA			   AS PEDIDO_COMPRA
+     , 104						   AS FORMULARIO_ORIGEM
+     , 188						   AS TAB_MASTER_ORIGEM
+     , @PEDIDO_COMPRA			   AS REG_MASTER_ORIGEM
+     , @EMPRESA					   AS EMPRESA
+     , CAST(GETDATE() AS DATETIME) AS DATA_HORA
+     , 1						   AS USUARIO_LOGADO
+     , @ENTIDADE				   AS ENTIDADE
+     , CAST(GETDATE() AS DATE)	   AS DATA_ENTREGA
+     , 'N'						   AS PHARMALINK
+     , 'N'						   AS PEDIDO_OL
+     , 'N'						   AS PEDIDO_ELETRONICO
+     , 'N'						   AS SUBST_INCLUSA_PRECO
+     , 2						   AS PHARMALINK_CONDICAO
+     , 0						   AS COMPRADOR
+     , 'N'						   AS INTEGRACAO_EXTERNA
+     , 'N'						   AS CROSSDOCKING
+     , 'S'						   AS PROCESSAR_INTEGRACAO
+     , 'S'						   AS SYNC_CD
+
+
+------------------------------------------------
+-- INSERE PEDIDO_COMPRA_PRODUTO NA TEMPOR RIA --
+------------------------------------------------
+
+
+IF OBJECT_ID('TEMPDB..#TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT') IS NOT NULL
+	DROP TABLE #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT
+
+
+CREATE TABLE #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT ( PEDIDO_COMPRA_PRODUTO		  NUMERIC(15)
+													, FORMULARIO_ORIGEM			  NUMERIC(15)
+													, TAB_MASTER_ORIGEM			  NUMERIC(15)
+													, REG_MASTER_ORIGEM			  NUMERIC(15)
+													, PEDIDO_COMPRA				  NUMERIC(15)
+													, PRODUTO					  NUMERIC(10)
+													, QUANTIDADE				  INT
+													, UNIDADE_MEDIDA			  VARCHAR(10)
+													, OPERACAO_FISCAL			  NUMERIC(5)
+													, VALOR_UNITARIO			  FLOAT
+													, TIPO_DESCONTO				  NUMERIC(5)
+													, DESCONTO					  NUMERIC(5)
+													, TOTAL_DESCONTO			  NUMERIC(9)
+													, TOTAL_PRODUTO				  FLOAT
+													, QUANTIDADE_EMBALAGEM		  NUMERIC(5)
+													, IPI_ALIQUOTA				  NUMERIC(5)
+													, IPI_VALOR					  FLOAT
+													, IPI_CREDITO				  VARCHAR(1)
+													, CLASSIF_FISCAL_CODIGO		  VARCHAR(13)
+													, IPI_ICMS					  VARCHAR(1)
+													, SITUACAO_TRIBUTARIA		  VARCHAR(3)
+													, ICMS_REDUCAO_BASE			  NUMERIC(9)
+													, ICMS_ALIQUOTA				  NUMERIC(9)
+													, ICMS_VALOR				  NUMERIC(9)
+													, ICMS_CREDITO				  VARCHAR(1)
+													, OBJETO_CONTROLE			  NUMERIC(9)
+													, PRECO_FABRICA				  FLOAT
+													, PRECO_MAXIMO				  FLOAT
+													, PRECO_VENDA				  FLOAT
+													, QUANTIDADE_ESTOQUE		  NUMERIC(9)
+													, ICMS_SUBST_VALOR			  NUMERIC(9)
+													, ICMS_ALIQUOTA_DECRETO_35346 NUMERIC(9)
+													, ICMS_VALOR_DECRETO_35346	  NUMERIC(9)
+													, ICMS_ST_VALOR				  NUMERIC(9)
+													, PERCENTUAL_REPASSE		  NUMERIC(9)
+													, VALOR_REPASSE				  NUMERIC(9)
+													, REGIME_FISCAL				  VARCHAR(1)
+													, SYNC_CD					  VARCHAR(1))
+
+
+INSERT INTO #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT ( PEDIDO_COMPRA_PRODUTO
+												   , FORMULARIO_ORIGEM
+												   , TAB_MASTER_ORIGEM
+												   , REG_MASTER_ORIGEM
+												   , PEDIDO_COMPRA
+												   , PRODUTO
+												   , QUANTIDADE
+												   , UNIDADE_MEDIDA
+												   , OPERACAO_FISCAL
+												   , VALOR_UNITARIO
+												   , TIPO_DESCONTO
+												   , DESCONTO
+												   , TOTAL_DESCONTO
+												   , TOTAL_PRODUTO
+												   , QUANTIDADE_EMBALAGEM
+												   , IPI_ALIQUOTA
+												   , IPI_VALOR
+												   , IPI_CREDITO
+												   , CLASSIF_FISCAL_CODIGO
+												   , IPI_ICMS
+												   , SITUACAO_TRIBUTARIA
+												   , ICMS_REDUCAO_BASE
+												   , ICMS_ALIQUOTA
+												   , ICMS_VALOR
+												   , ICMS_CREDITO
+												   , OBJETO_CONTROLE
+												   , PRECO_FABRICA
+												   , PRECO_MAXIMO
+												   , PRECO_VENDA
+												   , QUANTIDADE_ESTOQUE
+												   , ICMS_SUBST_VALOR
+												   , ICMS_ALIQUOTA_DECRETO_35346
+												   , ICMS_VALOR_DECRETO_35346
+												   , ICMS_ST_VALOR
+												   , PERCENTUAL_REPASSE
+												   , VALOR_REPASSE
+												   , REGIME_FISCAL
+												   , SYNC_CD)
+
+
+SELECT @PEDIDO_COMPRA_PRODUTO												  AS PEDIDO_COMPRA_PRODUTO
+	 , 104																	  AS FORMULARIO_ORIGEM
+	 , 188																	  AS TAB_MASTER_ORIGEM
+	 , @PEDIDO_COMPRA														  AS REG_MASTER_ORIGEM
+	 , @PEDIDO_COMPRA														  AS PEDIDO_COMPRA
+	 , E.PRODUTO
+     , E.QUANTIDADE
+     , ''																	  AS UNIDADE_MEDIDA
+     , B.OPERACAO_FISCAL
+     , DBO.MAIOR_ZERO(ISNULL(A.VALOR_UNITARIO,0), ISNULL(C.PRECO_FABRICA,0))  AS VALOR_UNITARIO
+     , 3																	  AS TIPO_DESCONTO
+     , ISNULL(A.PERCENTUAL_DESCONTO,0)										  AS DESCONTO
+     , 0																      AS TOTAL_DESCONTO
+     , 0																      AS TOTAL_PRODUTO
+     , CASE WHEN ( @ENTIDADE = D.FABRICANTE) OR ( A.ENTIDADE IS NOT NULL AND A.TIPO_FORNECEDOR IN(2) )
+            THEN ISNULL(A.QUANTIDADE_EMBALAGEM, D.EMBALAGEM_INDUSTRIA)
+            ELSE D.FATOR_EMBALAGEM
+        END QUANTIDADE_EMBALAGEM
+     , A.ALIQUOTA_IPI
+     , 0																	  AS ICMS_VALOR
+     , 'N'																	  AS ICMS_CREDITO
+     , ISNULL( D.NCM, C.CLASSIF_FISCAL_CODIGO)								  AS CLASSIF_FISCAL_CODIGO
+     , 'N'																	  AS IPI_ICMS
+     , ISNULL(A.SITUACAO_TRIBUTARIA,'060')									  AS SITUACAO_TRIBUTARIA
+     , 0																      AS ICMS_REDUCAO_BASE
+     , CASE WHEN A.IVA > 0
+	         THEN ISNULL(A.ICMS_SUBSTITUTO, ISNULL(A.ALIQUOTA_ICMS,0))
+	         ELSE CASE WHEN C.IVA > 0
+	                   THEN ISNULL(C.ICMS_SUBSTITUTO,0)
+	                   ELSE ISNULL(C.ALIQUOTA_ICMS,0)
+	              END
+	    END																	  AS ICMS_ALIQUOTA
+     , 0																      AS ICMS_VALOR
+     , CASE WHEN ( C.IVA > 0  OR C.ALIQUOTA_ICMS = 0 )
+            THEN 'N'
+            ELSE 'S'
+        END	ICMS_CREDITO
+     , B.OBJETO_CONTROLE_COMPRAS											  AS OBJETO_CONTROLE
+     , C.PRECO_FABRICA														  AS PRECO_FABRICA
+     , 0																      AS PRECO_MAXIMO
+     , 0																      AS PRECO_VENDA
+     , 0																	  AS QUANTIDADE_ESTOQUE
+     , 0																	  AS ICMS_SUBST_VALOR
+     , 0																	  AS ICMS_ALIQUOTA_DECRETO_35346
+     , 0																	  AS ICMS_VALOR_DECRETO_35346
+     , 0																	  AS ICMS_ST_VALOR
+     , 0																	  AS PERCENTUAL_REPASSE
+     , 0																	  AS VALOR_REPASSE
+     , 'N'																	  AS REGIME_FISCAL
+     , 'S'																	  AS SYNC_CD
+
+  FROM @PRODUTOS_INSERT				AS E
+  LEFT
+  JOIN PRODUTOS_FORNECEDORES		AS A WITH (NOLOCK) ON A.ENTIDADE = @ENTIDADE
+								                      AND A.PRODUTO  = E.PRODUTO
+  LEFT
+  JOIN PARAMETROS_COMPRAS           AS B WITH (NOLOCK) ON B.EMPRESA_USUARIA = @EMPRESA
+
+  LEFT
+  JOIN PRODUTOS_PARAMETROS_EMPRESAS AS C WITH (NOLOCK) ON C.PRODUTO = E.PRODUTO
+													  AND C.EMPRESA = B.EMPRESA_USUARIA
+  JOIN PRODUTOS						AS D WITH (NOLOCK) ON D.PRODUTO = E.PRODUTO
+
+ WHERE B.EMPRESA_USUARIA = @EMPRESA
+
+
+----------------------------------------------------------------
+-- REALIZA OS C LCULOS NAS COLUNAS TOTAL_DESCONTO E IPI_VALOR --
+----------------------------------------------------------------
+
+
+ UPDATE A SET TOTAL_DESCONTO = (B.QUANTIDADE * VALOR_UNITARIO) * (DESCONTO / 100)
+	  , TOTAL_PRODUTO  = (VALOR_UNITARIO * B.QUANTIDADE)
+  FROM #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT AS A
+  JOIN @PRODUTOS_INSERT						  AS B ON A.PRODUTO = B.PRODUTO
+											      AND A.QUANTIDADE = B.QUANTIDADE
+ WHERE A.PEDIDO_COMPRA		   = @PEDIDO_COMPRA
+   AND A.PEDIDO_COMPRA_PRODUTO = @PEDIDO_COMPRA_PRODUTO
+
+
+UPDATE A SET IPI_VALOR = TOTAL_PRODUTO * (IPI_ALIQUOTA / 100)
+  FROM #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT AS A
+  JOIN @PRODUTOS_INSERT						  AS B ON A.PRODUTO = B.PRODUTO
+												  AND A.QUANTIDADE = B.QUANTIDADE
+ WHERE A.PEDIDO_COMPRA	       = @PEDIDO_COMPRA
+   AND A.PEDIDO_COMPRA_PRODUTO = @PEDIDO_COMPRA_PRODUTO
+
+
+UPDATE A SET QUANTIDADE_ESTOQUE = (A.QUANTIDADE * A.QUANTIDADE_EMBALAGEM)
+  FROM #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT AS A
+  JOIN @PRODUTOS_INSERT						  AS B ON A.PRODUTO = B.PRODUTO
+												  AND A.QUANTIDADE = B.QUANTIDADE
+
+
+UPDATE A SET UNIDADE_MEDIDA = CASE WHEN A.QUANTIDADE_EMBALAGEM > 1
+								    THEN 'CX'
+								    ELSE 'UN'
+							   END
+  FROM #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT AS A
+   JOIN @PRODUTOS_INSERT						  AS B ON A.PRODUTO = B.PRODUTO
+												      AND A.QUANTIDADE = B.QUANTIDADE
+
+
+-------------------------------------------------
+-- INSERE PEDIDO_COMPRA_PARCELAS NA TEMPOR RIA --
+-------------------------------------------------
+
+
+IF OBJECT_ID('TEMPDB..#TEMP__PEDIDOS_COMPRAS_PARCELAS_INSERT') IS NOT NULL
+	DROP TABLE #TEMP__PEDIDOS_COMPRAS_PARCELAS_INSERT
+
+
+CREATE TABLE #TEMP__PEDIDOS_COMPRAS_PARCELAS_INSERT ( PEDIDO_COMPRA_PARCELA NUMERIC(9)
+													, FORMULARIO_ORIGEM		NUMERIC(9)
+													, TAB_MASTER_ORIGEM		NUMERIC(9)
+													, REG_MASTER_ORIGEM		NUMERIC(9)
+													, PEDIDO_COMPRA			NUMERIC(9)
+													, DIAS					NUMERIC(5)
+													, PERCENTUAL			NUMERIC(5)
+													, VENCIMENTO			DATETIME
+													, GERAR_ANTECIPACAO		VARCHAR(1)
+													, VALOR					FLOAT
+													, PARCELA				NUMERIC(5)
+													, VALOR_MOEDA			FLOAT )
+
+
+INSERT INTO #TEMP__PEDIDOS_COMPRAS_PARCELAS_INSERT ( PEDIDO_COMPRA_PARCELA
+												   , FORMULARIO_ORIGEM
+												   , TAB_MASTER_ORIGEM
+												   , REG_MASTER_ORIGEM
+												   , PEDIDO_COMPRA
+												   , DIAS
+												   , PERCENTUAL
+												   , VENCIMENTO
+												   , GERAR_ANTECIPACAO
+												   , VALOR
+												   , PARCELA
+												   , VALOR_MOEDA)
+
+
+SELECT @PEDIDO_COMPRA_PARCELA			AS PEDIDO_COMPRA_PARCELA
+	 , 104								AS FORMULARIO_ORIGEM
+	 , 188								AS TAB_MASTER_ORIGEM
+	 , @PEDIDO_COMPRA					AS REG_MASTER_ORIGEM
+	 , @PEDIDO_COMPRA					AS PEDIDO_COMPRA
+	 , 60								AS DIAS
+	 , 100								AS PERCENTUAL
+	 , DATEADD(DAY, 60, A.DATA_ENTREGA) AS VENCIMENTO
+	 , 'N'								AS GERAR_ANTECIPACAO
+	 , 0							    AS VALOR
+	 , 1							    AS PARCELA
+	 , 0							    AS VALOR_MOEDA
+  FROM #TEMP__PEDIDOS_COMPRAS_INSERT	AS A
+ WHERE PEDIDO_COMPRA = @PEDIDO_COMPRA
+
+
+---------------------------------------------
+-- INSERE PEDIDO_COMPRA_TOTAIS NA TEMPOR RIA
+---------------------------------------------
+
+
+IF OBJECT_ID('TEMPDB..#TEMP__PEDIDOS_COMPRAS_TOTAIS_INSERT') IS NOT NULL
+	DROP TABLE #TEMP__PEDIDOS_COMPRAS_TOTAIS_INSERT
+
+
+CREATE TABLE #TEMP__PEDIDOS_COMPRAS_TOTAIS_INSERT( PEDIDO_COMPRA_TOTAL   NUMERIC(9)
+												 , FORMULARIO_ORIGEM     NUMERIC(9)
+												 , TAB_MASTER_ORIGEM     NUMERIC(9)
+												 , REG_MASTER_ORIGEM     NUMERIC(9)
+												 , PEDIDO_COMPRA         NUMERIC(9)
+												 , TOTAL_PRODUTOS	     FLOAT
+												 , TOTAL_IPI		     FLOAT
+												 , SUB_TOTAL		     FLOAT
+												 , TOTAL_SERVICOS	     FLOAT
+												 , TOTAL_GERAL		     FLOAT
+												 , ICMS_BASE_CALCULO     NUMERIC(9)
+												 , ICMS_VALOR		     NUMERIC(9)
+												 , ICMS_BASE_SUBST	     NUMERIC(9)
+												 , ICMS_VALOR_SUBST	     NUMERIC(9)
+												 , TOTAL_DESC_FINANCEIRO NUMERIC(9)
+												 , TOTAL_REPASSE		 FLOAT
+												 , TOTAL_DESPESAS		 FLOAT
+												 , TOTAL_FRETE			 FLOAT
+												 , TOTAL_SEGURO			 FLOAT
+												 , DESCONTO_FINANCEIRO   NUMERIC(5)
+												 , REPASSE				 NUMERIC(5)
+												 , TOTAL_SUBSTITUICAO    FLOAT
+												 , DESCONTO_NEGOCIADO    NUMERIC(6) )
+
+
+INSERT INTO #TEMP__PEDIDOS_COMPRAS_TOTAIS_INSERT ( PEDIDO_COMPRA_TOTAL
+												 , FORMULARIO_ORIGEM
+												 , TAB_MASTER_ORIGEM
+												 , REG_MASTER_ORIGEM
+												 , PEDIDO_COMPRA
+												 , TOTAL_PRODUTOS
+												 , TOTAL_IPI
+												 , SUB_TOTAL
+												 , TOTAL_SERVICOS
+												 , TOTAL_GERAL
+												 , ICMS_BASE_CALCULO
+												 , ICMS_VALOR
+												 , ICMS_BASE_SUBST
+												 , ICMS_VALOR_SUBST
+												 , TOTAL_DESC_FINANCEIRO
+												 , TOTAL_REPASSE
+												 , TOTAL_DESPESAS
+												 , TOTAL_FRETE
+												 , TOTAL_SEGURO
+												 , DESCONTO_FINANCEIRO
+												 , REPASSE
+												 , TOTAL_SUBSTITUICAO
+												 , DESCONTO_NEGOCIADO )
+
+
+SELECT @PEDIDO_COMPRA_TOTAL									   AS PEDIDO_COMPRA_TOTAL
+	 , 104													   AS FORMULARIO_ORIGEM
+	 , 188													   AS TAB_MASTER_ORIGEM
+	 , @PEDIDO_COMPRA										   AS REG_MASTER_ORIGEM
+	 , @PEDIDO_COMPRA										   AS PEDIDO_COMPRA
+	 , SUM(B.TOTAL_PRODUTO)									   AS TOTAL_PRODUTO
+	 , SUM(B.IPI_VALOR)										   AS IPI_VALOR
+	 , (SUM(B.TOTAL_PRODUTO) + SUM(B.IPI_VALOR))			   AS SUB_TOTAL
+	 , 0													   AS TOTAL_SERVICOS
+	 , ((SUM(B.TOTAL_PRODUTO) + SUM(B.IPI_VALOR)) + 0 - 0 - 0) AS TOTAL_GERAL
+	 , 0													   AS ICMS_BASE_CALCULO
+	 , SUM(B.ICMS_VALOR)									   AS ICMS_VALOR
+	 , 0													   AS ICMS_BASE_SUBST
+	 , 0													   AS ICMS_VALOR_SUBST
+	 , 0													   AS TOTAL_DESC_FINANCEIRO
+	 , 0													   AS TOTAL_REPASSE
+	 , 0													   AS TOTAL_DESPESAS
+	 , 0													   AS TOTAL_FRETE
+	 , 0													   AS TOTAL_SEGURO
+	 , 0													   AS DESCONTO_FINANCEIRO
+	 , 0													   AS REPASSE
+	 , 0													   AS TOTAL_SUBSTITUICAO
+	 , 0													   AS DESCONTO_NEGOCIADO
+  FROM #TEMP__PEDIDOS_COMPRAS_INSERT		  AS A
+  JOIN #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT AS B ON A.PEDIDO_COMPRA = B.PEDIDO_COMPRA
+ WHERE A.PEDIDO_COMPRA = @PEDIDO_COMPRA
+
+
+-------------------------------------------------------------
+-- ATUALIZA O C LCULO DO VALOR NA PEDIDOS_COMPRAS_PARCELAS --
+-------------------------------------------------------------
+
+
+UPDATE C SET C.VALOR = B.TOTAL_GERAL
+  FROM #TEMP__PEDIDOS_COMPRAS_INSERT		  AS A
+  JOIN #TEMP__PEDIDOS_COMPRAS_TOTAIS_INSERT   AS B ON A.PEDIDO_COMPRA = B.PEDIDO_COMPRA
+  JOIN #TEMP__PEDIDOS_COMPRAS_PARCELAS_INSERT AS C ON A.PEDIDO_COMPRA = C.PEDIDO_COMPRA
+ WHERE A.PEDIDO_COMPRA = @PEDIDO_COMPRA
+
+
+-------------------------------------------------------------
+-- IN CIO INSER  O NA TABELA DE PEDIDOS_COMPRAS E DETAIL's --
+-------------------------------------------------------------
+
+
+INSERT INTO PEDIDOS_COMPRAS ( FORMULARIO_ORIGEM
+							, TAB_MASTER_ORIGEM
+							, REG_MASTER_ORIGEM
+							, EMPRESA
+							, DATA_HORA
+							, USUARIO_LOGADO
+							, ENTIDADE
+							, DATA_ENTREGA
+							, PHARMALINK
+							, PEDIDO_OL
+							, PEDIDO_ELETRONICO
+							, SUBST_INCLUSA_PRECO
+							, PHARMALINK_CONDICAO
+							, COMPRADOR
+							, INTEGRACAO_EXTERNA
+							, CROSSDOCKING
+							, PROCESSAR_INTEGRACAO
+							, SYNC_CD )
+
+
+SELECT FORMULARIO_ORIGEM
+     , TAB_MASTER_ORIGEM
+     , REG_MASTER_ORIGEM
+     , EMPRESA
+     , DATA_HORA
+     , USUARIO_LOGADO
+     , ENTIDADE
+     , DATA_ENTREGA
+     , PHARMALINK
+     , PEDIDO_OL
+     , PEDIDO_ELETRONICO
+     , SUBST_INCLUSA_PRECO
+     , PHARMALINK_CONDICAO
+     , COMPRADOR
+     , INTEGRACAO_EXTERNA
+     , CROSSDOCKING
+     , PROCESSAR_INTEGRACAO
+     , SYNC_CD
+  FROM #TEMP__PEDIDOS_COMPRAS_INSERT
+
+
+INSERT INTO PEDIDOS_COMPRAS_PRODUTOS ( FORMULARIO_ORIGEM
+									 , TAB_MASTER_ORIGEM
+									 , REG_MASTER_ORIGEM
+									 , PEDIDO_COMPRA
+									 , PRODUTO
+									 , QUANTIDADE
+									 , UNIDADE_MEDIDA
+									 , OPERACAO_FISCAL
+									 , VALOR_UNITARIO
+									 , TIPO_DESCONTO
+									 , DESCONTO
+									 , TOTAL_DESCONTO
+									 , TOTAL_PRODUTO
+									 , QUANTIDADE_EMBALAGEM
+									 , IPI_ALIQUOTA
+									 , IPI_VALOR
+									 , IPI_CREDITO
+									 , CLASSIF_FISCAL_CODIGO
+									 , IPI_ICMS
+									 , SITUACAO_TRIBUTARIA
+									 , ICMS_REDUCAO_BASE
+									 , ICMS_ALIQUOTA
+									 , ICMS_VALOR
+									 , ICMS_CREDITO
+									 , OBJETO_CONTROLE
+									 , PRECO_FABRICA
+									 , PRECO_MAXIMO
+									 , PRECO_VENDA
+									 , QUANTIDADE_ESTOQUE
+									 , ICMS_SUBST_VALOR
+									 , ICMS_ALIQUOTA_DECRETO_35346
+									 , ICMS_VALOR_DECRETO_35346
+									 , ICMS_ST_VALOR
+									 , PERCENTUAL_REPASSE
+									 , VALOR_REPASSE
+									 , REGIME_FISCAL
+									 , SYNC_CD )
+
+
+SELECT FORMULARIO_ORIGEM
+     , TAB_MASTER_ORIGEM
+     , REG_MASTER_ORIGEM
+     , PEDIDO_COMPRA
+     , PRODUTO
+     , QUANTIDADE
+     , UNIDADE_MEDIDA
+     , OPERACAO_FISCAL
+     , VALOR_UNITARIO
+     , TIPO_DESCONTO
+     , DESCONTO
+     , TOTAL_DESCONTO
+     , TOTAL_PRODUTO
+     , QUANTIDADE_EMBALAGEM
+     , ISNULL(IPI_ALIQUOTA,0) AS IPI_ALIQUOTA
+     , ISNULL(IPI_VALOR,0) AS IPI_VALOR
+     , ISNULL(IPI_CREDITO,0) AS IPI_CREDITO
+     , CLASSIF_FISCAL_CODIGO
+     , IPI_ICMS
+     , SITUACAO_TRIBUTARIA
+     , ICMS_REDUCAO_BASE
+     , ICMS_ALIQUOTA
+     , ICMS_VALOR
+     , ICMS_CREDITO
+     , OBJETO_CONTROLE
+     , PRECO_FABRICA
+     , PRECO_MAXIMO
+     , PRECO_VENDA
+     , QUANTIDADE_ESTOQUE
+     , ICMS_SUBST_VALOR
+     , ICMS_ALIQUOTA_DECRETO_35346
+     , ICMS_VALOR_DECRETO_35346
+     , ICMS_ST_VALOR
+     , PERCENTUAL_REPASSE
+     , VALOR_REPASSE
+     , REGIME_FISCAL
+     , SYNC_CD
+  FROM #TEMP__PEDIDOS_COMPRAS_PRODUTOS_INSERT
+
+
+INSERT INTO PEDIDOS_COMPRAS_PARCELAS ( FORMULARIO_ORIGEM
+									 , TAB_MASTER_ORIGEM
+									 , REG_MASTER_ORIGEM
+									 , PEDIDO_COMPRA
+									 , DIAS
+									 , PERCENTUAL
+									 , VENCIMENTO
+									 , GERAR_ANTECIPACAO
+									 , VALOR
+									 , PARCELA
+									 , VALOR_MOEDA )
+
+
+SELECT FORMULARIO_ORIGEM
+     , TAB_MASTER_ORIGEM
+     , REG_MASTER_ORIGEM
+     , PEDIDO_COMPRA
+     , DIAS
+     , PERCENTUAL
+     , VENCIMENTO
+     , GERAR_ANTECIPACAO
+     , VALOR
+     , PARCELA
+     , VALOR_MOEDA
+FROM #TEMP__PEDIDOS_COMPRAS_PARCELAS_INSERT
+WHERE PEDIDO_COMPRA = @PEDIDO_COMPRA
+
+
+INSERT INTO PEDIDOS_COMPRAS_TOTAIS ( FORMULARIO_ORIGEM
+								   , TAB_MASTER_ORIGEM
+								   , REG_MASTER_ORIGEM
+								   , PEDIDO_COMPRA
+								   , TOTAL_PRODUTOS
+								   , TOTAL_IPI
+								   , SUB_TOTAL
+								   , TOTAL_SERVICOS
+								   , TOTAL_GERAL
+								   , ICMS_BASE_CALCULO
+								   , ICMS_VALOR
+								   , ICMS_BASE_SUBST
+								   , ICMS_VALOR_SUBST
+								   , TOTAL_DESC_FINANCEIRO
+								   , TOTAL_REPASSE
+								   , TOTAL_DESPESAS
+								   , TOTAL_FRETE
+								   , TOTAL_SEGURO
+								   , DESCONTO_FINANCEIRO
+								   , REPASSE
+								   , TOTAL_SUBSTITUICAO
+								   , DESCONTO_NEGOCIADO )
+
+
+SELECT FORMULARIO_ORIGEM
+     , TAB_MASTER_ORIGEM
+     , REG_MASTER_ORIGEM
+     , PEDIDO_COMPRA
+     , TOTAL_PRODUTOS
+     , ISNULL(TOTAL_IPI,0) AS TOTAL_IPI
+     , ISNULL(SUB_TOTAL,0) AS SUB_TOTAL
+     , TOTAL_SERVICOS
+     , ISNULL(TOTAL_GERAL,0) AS TOTAL_GERAL
+     , ICMS_BASE_CALCULO
+     , ICMS_VALOR
+     , ICMS_BASE_SUBST
+     , ICMS_VALOR_SUBST
+     , TOTAL_DESC_FINANCEIRO
+     , TOTAL_REPASSE
+     , TOTAL_DESPESAS
+     , TOTAL_FRETE
+     , TOTAL_SEGURO
+     , DESCONTO_FINANCEIRO
+     , REPASSE
+     , TOTAL_SUBSTITUICAO
+     , DESCONTO_NEGOCIADO
+  FROM #TEMP__PEDIDOS_COMPRAS_TOTAIS_INSERT
+ WHERE PEDIDO_COMPRA = @PEDIDO_COMPRA
+
+
+----------------------------------------------------------
+-- FIM INSER  O NA TABELA DE PEDIDOS_COMPRAS E DETAIL's --
+----------------------------------------------------------
+
+
+---------------------------------
+-- REPROCESSA A GRAVA  O FINAL --
+---------------------------------
+
+
+EXEC USP_PROCFIT_TABELA_EXEC_TRANSACOES 'PEDIDOS_COMPRAS', @PEDIDO_COMPRA
+
+
+-------------------------------------------
+-- ATUALIZA O PEDIDO_COMPRA NA NF_COMPRA --
+-------------------------------------------
+
+
+UPDATE A SET PEDIDO_COMPRA = @PEDIDO_COMPRA
+  FROM NF_COMPRA AS A
+ WHERE CHAVE_NFE = @CHAVE_NFE
+   AND EMPRESA   = @EMPRESA
+   AND PEDIDO_COMPRA IS NULL
+
+
+   COMMIT TRANSACTION
+
+
+END
+	TRY
+
+
+BEGIN
+	CATCH
+
+
+IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+
+
+			RAISERROR('A gera  o do Pedido de Compra n o foi conclu da, por favor verique os par metros',15, -1)
+
+
+	RETURN
+
+
+END
+	CATCH
+
+------------------
+-- SELECT FINAL --
+------------------
+
+
+SELECT A.PEDIDO_COMPRA
+  FROM PEDIDOS_COMPRAS			AS A
+ WHERE A.PEDIDO_COMPRA = @PEDIDO_COMPRA
